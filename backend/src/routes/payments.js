@@ -13,7 +13,7 @@ const {
 router.use(authenticate);
 
 router.post('/deposit', authorize('brand', 'admin'), createDeposit);
-router.post('/payout', authorize('admin'), createPayout);
+router.post('/payout', authorize('creator', 'admin'), createPayout);
 router.get('/', listPayments);
 router.get('/audit', authorize('admin'), getPaymentAudit);
 router.get('/:paymentId', getPayment);

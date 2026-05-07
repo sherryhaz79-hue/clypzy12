@@ -39,10 +39,6 @@ const clipSchema = new mongoose.Schema({
       message: 'Timestamps must be in HH:MM:SS format'
     }
   },
-  // editsDescription: {
-  //   type: String,
-  //   trim: true
-  // },
   creatorMessage: {
     type: String,
     trim: true,
@@ -54,11 +50,89 @@ const clipSchema = new mongoose.Schema({
     default: 0,
     min: [0, 'Views cannot be negative']
   },
+  viewsAtSubmit: {
+    type: Number,
+    default: null,
+    min: [0, 'Submission views cannot be negative']
+  },
+  viewsAtApproval: {
+    type: Number,
+    default: null,
+    min: [0, 'Approval views cannot be negative']
+  },
+  eligibleViewsAtApproval: {
+    type: Number,
+    default: null,
+    min: [0, 'Eligible views cannot be negative']
+  },
   earnings: {
     type: Number,
     required: true,
     default: 0,
     min: [0, 'Earnings cannot be negative']
+  },
+  lockedEarnings: {
+    type: Number,
+    required: true,
+    default: 0,
+    min: [0, 'Locked earnings cannot be negative']
+  },
+  paidOutAmount: {
+    type: Number,
+    required: true,
+    default: 0,
+    min: [0, 'Paid out amount cannot be negative']
+  },
+  earningsLocked: {
+    type: Boolean,
+    required: true,
+    default: false
+  },
+  approvedAt: {
+    type: Date,
+    default: null
+  },
+  reservedAt: {
+    type: Date,
+    default: null
+  },
+  instagramShortcode: {
+    type: String,
+    trim: true,
+    default: null
+  },
+  instagramThumbnailUrl: {
+    type: String,
+    trim: true,
+    default: null
+  },
+  instagramVideoPlayCount: {
+    type: Number,
+    default: null,
+    min: [0, 'Instagram video play count cannot be negative']
+  },
+  instagramMetricsFetchedAt: {
+    type: Date,
+    default: null
+  },
+  youtubeVideoId: {
+    type: String,
+    trim: true,
+    default: null
+  },
+  youtubeThumbnailUrl: {
+    type: String,
+    trim: true,
+    default: null
+  },
+  youtubeViewCount: {
+    type: Number,
+    default: null,
+    min: [0, 'YouTube view count cannot be negative']
+  },
+  youtubeMetricsFetchedAt: {
+    type: Date,
+    default: null
   },
   status: {
     type: String,
@@ -80,6 +154,10 @@ const clipSchema = new mongoose.Schema({
 
 // Calculate earnings based on views and campaign CPM
 clipSchema.methods.calculateEarnings = async function () {
+  if (this.earningsLocked) {
+    return Number(this.lockedEarnings || 0);
+  }
+
   const Campaign = mongoose.model('Campaign');
   const campaign = await Campaign.findOne({ campaignId: this.campaignId });
   if (campaign) {
@@ -93,5 +171,8 @@ clipSchema.index({ campaignId: 1 });
 clipSchema.index({ creatorId: 1 });
 clipSchema.index({ status: 1 });
 clipSchema.index({ views: -1 });
+clipSchema.index({ instagramShortcode: 1 });
+clipSchema.index({ youtubeVideoId: 1 });
+clipSchema.index({ earningsLocked: 1 });
 
 module.exports = mongoose.model('Clip', clipSchema);

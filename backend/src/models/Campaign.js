@@ -51,7 +51,7 @@ const campaignSchema = new mongoose.Schema({
   },
   brandLogo: {
     type: String, 
-    required: [true, 'Brand logo is required']
+    required: [false, 'Brand logo is optional'] 
   },
   CPM: {
     type: Number,
@@ -62,6 +62,18 @@ const campaignSchema = new mongoose.Schema({
     type: Number,
     required: [true, 'Deposit is required'],
     min: [0, 'Deposit cannot be negative']
+  },
+  budgetReserved: {
+    type: Number,
+    required: true,
+    default: 0,
+    min: [0, 'Reserved budget cannot be negative']
+  },
+  budgetPaid: {
+    type: Number,
+    required: true,
+    default: 0,
+    min: [0, 'Paid budget cannot be negative']
   },
   minViewsForPayout: {
     type: Number,
@@ -82,7 +94,9 @@ const campaignSchema = new mongoose.Schema({
     default: 'pending'
   }
 }, {
-  timestamps: true
+  timestamps: true,
+  toJSON: { virtuals: true },
+  toObject: { virtuals: true }
 });
 
 // Validate deposit is sufficient for expected views
@@ -93,6 +107,13 @@ campaignSchema.pre('validate', function () {
       this.invalidate('deposit', `Deposit ($${this.deposit}) must cover goal views cost ($${requiredDeposit.toFixed(2)})`);
     }
   }
+});
+
+campaignSchema.virtual('availableBudget').get(function () {
+  const deposit = Number(this.deposit || 0);
+  const reserved = Number(this.budgetReserved || 0);
+  const paid = Number(this.budgetPaid || 0);
+  return Math.max(0, deposit - reserved - paid);
 });
 
 // campaignId index auto-created by unique: true

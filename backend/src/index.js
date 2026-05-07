@@ -10,8 +10,12 @@ const connectDB = require('./config/database');
 const routes = require('./routes');
 const errorHandler = require('./middleware/errorHandler');
 const config = require('./config');
+const { startClipRefreshScheduler } = require('./services/clipRefreshScheduler');
 
 const app = express();
+
+// Trust nginx / reverse proxy headers (required for rate limiter + correct req.ip)
+app.set('trust proxy', config.trustProxy);
 
 // Security middleware
 app.use(helmet());
@@ -42,7 +46,7 @@ app.use('/api', routes);
 
 //logo uploads
 const path = require('path');
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+app.use('/uploads', express.static(path.join(__dirname, '..', 'uploads')));
 
 
 // Error handling
@@ -61,6 +65,7 @@ const startServer = async () => {
   app.listen(PORT, () => {
     console.log(`Clypzy Backend API running on port ${PORT}`);
     console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
+    startClipRefreshScheduler();
   });
 };
 

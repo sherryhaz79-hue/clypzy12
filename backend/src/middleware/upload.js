@@ -39,18 +39,56 @@
 
 // module.exports = upload;
 
-const multer = require("multer");
-const { CloudinaryStorage } = require("multer-storage-cloudinary");
-const cloudinary = require("../config/cloudinary");
+const fs = require('fs');
+const path = require('path');
+const multer = require('multer');
 
-const storage = new CloudinaryStorage({
-     cloudinary,
-     params: {
-          folder: "diro-logos",
-          allowed_formats: ["jpg", "png", "jpeg", "webp"],
-     },
+const hasCloudinaryCreds = Boolean(
+  process.env.CLOUD_NAME && process.env.CLOUD_API_KEY && process.env.CLOUD_API_SECRET
+);
+
+const requestedStorage = (process.env.UPLOAD_STORAGE || 'local').toLowerCase();
+const useCloudinary = requestedStorage === 'cloudinary' && hasCloudinaryCreds;
+
+let storage;
+
+if (useCloudinary) {
+  const { CloudinaryStorage } = require('multer-storage-cloudinary');
+  const cloudinary = require('../config/cloudinary');
+
+  storage = new CloudinaryStorage({
+    cloudinary,
+    params: {
+      folder: 'diro-logos',
+      allowed_formats: ['jpg', 'png', 'jpeg', 'webp']
+    }
+  });
+} else {
+  const uploadDir = path.join(process.cwd(), 'uploads', 'logos');
+  if (!fs.existsSync(uploadDir)) {
+    fs.mkdirSync(uploadDir, { recursive: true });
+  }
+
+  storage = multer.diskStorage({
+    destination: (_req, _file, cb) => cb(null, uploadDir),
+    filename: (_req, file, cb) => {
+      const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
+      cb(null, `brand-${uniqueSuffix}${path.extname(file.originalname)}`);
+    }
+  });
+}
+
+const fileFilter = (_req, file, cb) => {
+  if (!file.originalname.match(/\.(jpg|jpeg|png|webp)$/i)) {
+    return cb(new Error('Only image files (jpg, png, webp) are allowed'), false);
+  }
+  return cb(null, true);
+};
+
+const upload = multer({
+  storage,
+  fileFilter,
+  limits: { fileSize: 2 * 1024 * 1024 }
 });
-
-const upload = multer({ storage });
 
 module.exports = upload;

@@ -34,7 +34,14 @@ function AdminReports() {
           creatorId: c.creatorId,
           creator: userMap[c.creatorId] || 'Unknown Creator',
           clipLink: c.clipLink || '',
-          views: c.views || 0,
+          views: Number.isFinite(Number(c.views))
+            ? Number(c.views)
+            : Number.isFinite(Number(c.youtubeViewCount))
+              ? Number(c.youtubeViewCount)
+              : Number.isFinite(Number(c.instagramVideoPlayCount))
+                ? Number(c.instagramVideoPlayCount)
+                : 0,
+          thumbnailUrl: c.youtubeThumbnailUrl || c.instagramThumbnailUrl || null,
           earnings: c.earnings || 0,
           date: new Date(c.submittedAt || c.createdAt).toLocaleDateString('en-CA'),
           status: c.status === 'pending' ? 'Pending' : c.status === 'approved' ? 'Approved' : c.status === 'flagged' ? 'Flagged' : c.status,
@@ -119,6 +126,7 @@ function AdminReports() {
           <table className="admin-table">
             <thead>
               <tr>
+                <th>Thumbnail</th>
                 <th>Creator</th>
                 <th>Campaign</th>
                 <th>Clip Link</th>
@@ -132,6 +140,13 @@ function AdminReports() {
             <tbody>
               {displayClips.map((c) => (
                 <tr key={c.id}>
+                  <td>
+                    {c.thumbnailUrl ? (
+                      <img src={c.thumbnailUrl} alt="clip thumbnail" style={{ width: 64, height: 64, borderRadius: 8, objectFit: 'cover' }} />
+                    ) : (
+                      <span style={{ color: '#9aa3ae', fontSize: '0.85rem' }}>No image</span>
+                    )}
+                  </td>
                   <td style={{ fontWeight: 600 }}>{c.creator}</td>
                   <td style={{ fontSize: '0.9rem', color: '#6b7685' }}>{c.campaign}</td>
                   <td>

@@ -5,6 +5,8 @@
   "main": "src/index.js",
   "scripts": {
     "start": "node src/index.js",
+    "debug": "node --inspect=0.0.0.0:9229 src/index.js",
+    "debug:seed": "npm run seed && npm run debug",
     "dev": "nodemon src/index.js",
     "test": "jest",
     "test:watch": "jest --watch",
@@ -41,8 +43,12 @@
     "jsonwebtoken": "^9.0.3",
     "mongoose": "^9.1.6",
     "multer": "^2.0.2",
+    "multer-storage-cloudinary": "^4.0.0",
     "swagger-ui-express": "^5.0.1",
-    "yamljs": "^0.3.0"
+    "yamljs": "^0.3.0",
+    "youtube-api": "^3.0.2",
+    "youtube-search-api": "^2.0.1",
+    "youtube-sr": "^4.3.12"
   },
   "jest": {
     "testEnvironment": "node",

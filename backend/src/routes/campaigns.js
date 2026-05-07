@@ -58,10 +58,16 @@ router.post(
   upload.single("brandLogo"),
   async (req, res, next) => {
     try {
+      const resolvedBrandLogo = req.file
+        ? (req.file.path && req.file.path.startsWith('http')
+          ? req.file.path
+          : `/uploads/logos/${req.file.filename}`)
+        : null;
+
       const campaign = await createCampaign(
         {
           ...req.body,
-          brandLogo: req.file?.path || null,
+          brandLogo: resolvedBrandLogo,
         },
         req.user.userId
       );

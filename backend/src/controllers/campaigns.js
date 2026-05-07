@@ -4,7 +4,20 @@
 const Campaign = require('../models/Campaign');
 const User = require('../models/User');
 const generateId = require('../utils/generateId');
+const {
+  getCampaignBudgetSnapshot,
+  recomputeCampaignEarnings,
+  recomputeAllCreatorWallets
+} = require('../services/finance');
 const { NotFoundError, ForbiddenError, ValidationError } = require('../utils/errors');
+
+const serializeCampaignWithBudget = (campaignDoc) => {
+  const campaign = typeof campaignDoc.toObject === 'function' ? campaignDoc.toObject() : { ...campaignDoc };
+  return {
+    ...campaign,
+    ...getCampaignBudgetSnapshot(campaign)
+  };
+};
 
 // POST /api/campaigns
 // const createCampaign = async (req, res, next) => {
@@ -38,7 +51,7 @@ const { NotFoundError, ForbiddenError, ValidationError } = require('../utils/err
 const createCampaign = async (campaignData, userId) => {
   const {
     title, description, CPM, deposit,
-    goalViews, currency, brandLogo
+    goalViews, currency, brandLogo, minViewsForPayout
   } = campaignData;
 
   // Perform database creation
@@ -54,9 +67,12 @@ const createCampaign = async (campaignData, userId) => {
     // brandLogo: brandLogo ? `/uploads/logos/${brandLogo}` : null,
     brandLogo: brandLogo || null, 
     sourceVideos: ['placeholder.mp4'], // You can update this later
-    minViewsForPayout: 5000,
+    minViewsForPayout: Number.isFinite(Number(minViewsForPayout)) ? Number(minViewsForPayout) : 5000,
     status: 'pending'
   });
+
+  await recomputeCampaignEarnings(campaign.campaignId);
+  await recomputeAllCreatorWallets();
 
   return campaign;
 };
@@ -85,7 +101,7 @@ const listCampaigns = async (req, res, next) => {
     ]);
 
     // Populate brand details for admin
-    let campaignsWithBrand = campaigns;
+    let campaignsWithBrand = campaigns.map((c) => serializeCampaignWithBudget(c));
     if (req.user && req.user.role === 'admin') {
       const brandIds = [...new Set(campaigns.map(c => c.brandId))];
       const brands = await User.find({ userId: { $in: brandIds } }).select('userId name email');
@@ -95,7 +111,7 @@ const listCampaigns = async (req, res, next) => {
       });
 
       campaignsWithBrand = campaigns.map(c => {
-        const campaign = c.toObject();
+        const campaign = serializeCampaignWithBudget(c);
         campaign.brandDetails = brandMap[c.brandId] || { name: 'Unknown', email: '' };
         return campaign;
       });
@@ -128,7 +144,7 @@ const getCampaign = async (req, res, next) => {
       throw new ForbiddenError('Cannot view another brand\'s campaign');
     }
 
-    res.json({ campaign });
+    res.json({ campaign: serializeCampaignWithBudget(campaign) });
   } catch (error) {
     next(error);
   }
@@ -153,12 +169,24 @@ const updateCampaign = async (req, res, next) => {
     const allowedFields = ['title', 'description', 'sourceVideos', 'goalViews', 'CPM', 'deposit', 'minViewsForPayout'];
     for (const field of allowedFields) {
       if (req.body[field] !== undefined) {
+        if (field === 'deposit') {
+          const nextDeposit = Number(req.body.deposit);
+          if (!Number.isFinite(nextDeposit) || nextDeposit < 0) {
+            throw new ValidationError('Deposit must be a non-negative number');
+          }
+          const budgetFloor = Number(campaign.budgetReserved || 0) + Number(campaign.budgetPaid || 0);
+          if (nextDeposit < budgetFloor) {
+            throw new ValidationError(`Deposit cannot be below reserved+paid amount ($${budgetFloor.toFixed(2)})`);
+          }
+        }
         campaign[field] = req.body[field];
       }
     }
 
     await campaign.save();
-    res.json({ campaign });
+    await recomputeCampaignEarnings(campaign.campaignId);
+    await recomputeAllCreatorWallets();
+    res.json({ campaign: serializeCampaignWithBudget(campaign) });
   } catch (error) {
     next(error);
   }
@@ -185,7 +213,9 @@ const updateCampaignStatus = async (req, res, next) => {
 
     campaign.status = status;
     await campaign.save();
-    res.json({ campaign });
+    await recomputeCampaignEarnings(campaign.campaignId);
+    await recomputeAllCreatorWallets();
+    res.json({ campaign: serializeCampaignWithBudget(campaign) });
   } catch (error) {
     next(error);
   }
@@ -216,6 +246,7 @@ const getCampaignAnalytics = async (req, res, next) => {
 
     const campaign = await Campaign.findOne({ campaignId: req.params.campaignId });
     if (!campaign) throw new NotFoundError('Campaign');
+    await recomputeCampaignEarnings(campaign.campaignId);
 
     if (req.user.role === 'brand' && campaign.brandId !== req.user.userId) {
       throw new ForbiddenError('Cannot view another brand\'s analytics');
@@ -232,6 +263,7 @@ const getCampaignAnalytics = async (req, res, next) => {
     const totalViews = clips.reduce((sum, clip) => sum + clip.views, 0);
     const totalEarnings = clips.reduce((sum, clip) => sum + clip.earnings, 0);
     const viewProgress = campaign.goalViews > 0 ? (totalViews / campaign.goalViews) * 100 : 0;
+    const budget = getCampaignBudgetSnapshot(campaign);
 
     res.json({
       campaignId: campaign.campaignId,
@@ -240,8 +272,14 @@ const getCampaignAnalytics = async (req, res, next) => {
       totalViews,
       totalEarnings,
       totalDeposited: totalDeposits[0]?.total || 0,
+      currentBudget: Number(campaign.deposit || 0),
       viewProgress: Math.min(viewProgress, 100).toFixed(2),
-      remainingBudget: campaign.deposit - totalEarnings
+      remainingBudget: budget.budgetAvailable,
+      reservedBudget: budget.budgetReserved,
+      paidBudget: budget.budgetPaid,
+      budgetUtilizationPercent: budget.budgetTotal > 0
+        ? Math.min(100, (((budget.budgetReserved + budget.budgetPaid) / budget.budgetTotal) * 100))
+        : 0
     });
   } catch (error) {
     next(error);

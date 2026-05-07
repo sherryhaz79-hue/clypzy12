@@ -186,7 +186,15 @@ function Dashboard() {
             {topClips.map(clip => {
               const camp = campaigns.find(c => c.id === clip.campaignId)
               return (
-                <div className="topclip-card" key={clip.id}>
+                <div
+                  className="topclip-card"
+                  key={clip.id}
+                  style={clip.thumbnailUrl ? {
+                    backgroundImage: `linear-gradient(180deg, rgba(0,0,0,0.1), rgba(0,0,0,0.7)), url(${clip.thumbnailUrl})`,
+                    backgroundSize: 'cover',
+                    backgroundPosition: 'center'
+                  } : undefined}
+                >
                   <div className="topclip-views">{clip.views.toLocaleString()} views</div>
                   <div className="topclip-name">{camp?.name}</div>
                 </div>

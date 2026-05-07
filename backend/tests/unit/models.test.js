@@ -194,6 +194,15 @@ describe('Clip Model', () => {
     const validation = clip.validateSync();
     expect(validation.errors.views).toBeDefined();
   });
+
+  test('should reject negative youtube view count', () => {
+    const clip = new Clip({
+      clipId: 'clip-001', campaignId: 'c1', creatorId: 'cr1',
+      clipLink: 'url', originalVideoLink: 'url', youtubeViewCount: -1
+    });
+    const validation = clip.validateSync();
+    expect(validation.errors.youtubeViewCount).toBeDefined();
+  });
 });
 
 describe('Payment Model', () => {

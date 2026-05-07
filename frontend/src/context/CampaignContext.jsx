@@ -43,7 +43,10 @@ function mapCampaign(c, userRole) {
     socials: (c.platforms || ['Instagram', 'TikTok', 'YouTube', 'X']).map(p => p),
     pay: `$${c.CPM ? (c.CPM * 1000).toFixed(0) : '0'}`,
     cpm: c.CPM || 0,
-    budget: c.deposit || 0,
+    budget: userRole === 'creator'
+      ? (Number.isFinite(Number(c.availableBudget)) ? Number(c.availableBudget) : (c.deposit || 0))
+      : (c.deposit || 0),
+    totalBudget: c.deposit || 0,
     endsIn: c.status === 'completed' ? 'Ended' : 'Active',
     language: 'English',
     platforms: c.platforms || ['Instagram', 'TikTok', 'YouTube', 'X'],
@@ -77,6 +80,14 @@ function mapCampaign(c, userRole) {
 // }
 //mapclip to show creator description
 function mapClip(c) {
+  const resolvedViews = Number.isFinite(Number(c.views))
+    ? Number(c.views)
+    : Number.isFinite(Number(c.youtubeViewCount))
+      ? Number(c.youtubeViewCount)
+      : Number.isFinite(Number(c.instagramVideoPlayCount))
+        ? Number(c.instagramVideoPlayCount)
+        : 0
+
   return {
     id: c.clipId || c._id,
     campaignId: c.campaignId,
@@ -84,7 +95,10 @@ function mapClip(c) {
     creatorMessage: c.creatorMessage || '',
     platform: detectPlatform(c.clipLink || ''),
     submittedAt: new Date(c.submittedAt || c.createdAt).getTime(),
-    views: c.views || 0,
+    views: resolvedViews,
+    thumbnailUrl: c.youtubeThumbnailUrl || c.instagramThumbnailUrl || null,
+    instagramVideoPlayCount: Number.isFinite(Number(c.instagramVideoPlayCount)) ? Number(c.instagramVideoPlayCount) : null,
+    youtubeViewCount: Number.isFinite(Number(c.youtubeViewCount)) ? Number(c.youtubeViewCount) : null,
     earnings: c.earnings || 0,
     status: c.status === 'approved' ? 'approved' : c.status === 'flagged' ? 'rejected' : 'pending',
   }
@@ -149,7 +163,7 @@ export function CampaignProvider({ children }) {
       .then((data) => {
         const w = data.wallet || {}
         setWallet({
-          available: w.availableBalance || 0,
+          available: w.withdrawableBalance || 0,
           pending: w.pendingBalance || 0,
           paidOut: w.withdrawableBalance !== undefined ? (w.availableBalance || 0) - (w.withdrawableBalance || 0) : 0,
           lifetime: (w.availableBalance || 0) + (w.pendingBalance || 0),
@@ -189,6 +203,10 @@ export function CampaignProvider({ children }) {
   // }, [])
 
   const submitClip = useCallback(async (campaignId, link, creatorMessage) => {
+    if (!user || user.role !== 'creator') {
+      throw new Error('Only creator accounts can submit reels.')
+    }
+
     const data = await clipsAPI.submit({
       campaignId,
       clipLink: link,
@@ -196,7 +214,7 @@ export function CampaignProvider({ children }) {
     })
 
     setClips(prev => [...prev, mapClip(data.clip)])
-  }, [])
+  }, [user])
 
 
   const refreshClips = useCallback(async () => {
@@ -211,7 +229,7 @@ export function CampaignProvider({ children }) {
       const data = await usersAPI.getWallet()
       const w = data.wallet || {}
       setWallet({
-        available: w.availableBalance || 0,
+        available: w.withdrawableBalance || 0,
         pending: w.pendingBalance || 0,
         paidOut: w.withdrawableBalance !== undefined ? (w.availableBalance || 0) - (w.withdrawableBalance || 0) : 0,
         lifetime: (w.availableBalance || 0) + (w.pendingBalance || 0),

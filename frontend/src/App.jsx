@@ -55,7 +55,7 @@ function AppRoutes() {
       <Route path="/login" element={<Login />} />
       <Route path="/signup" element={<Signup />} />
       <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-      <Route path="/add-clips" element={<ProtectedRoute><AddClips /></ProtectedRoute>} />
+      <Route path="/add-clips" element={<ProtectedRoute role="creator"><AddClips /></ProtectedRoute>} />
       <Route path="/earnings" element={<ProtectedRoute><Earnings /></ProtectedRoute>} />
       <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
       <Route path="/brand-dashboard" element={<ProtectedRoute><BrandDashboard /></ProtectedRoute>} />
