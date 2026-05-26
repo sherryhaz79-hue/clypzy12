@@ -19,7 +19,7 @@ app.set('trust proxy', true);
 
 // Security middleware
 app.use(helmet());
-app.use(cors({ origin: config.corsOrigin }));
+app.use(cors());
 app.use(compression());
 
 // Rate limiting
