@@ -15,7 +15,7 @@ const { startClipRefreshScheduler } = require('./services/clipRefreshScheduler')
 const app = express();
 
 // Trust nginx / reverse proxy headers (required for rate limiter + correct req.ip)
-app.set('trust proxy', config.trustProxy);
+app.set('trust proxy', true);
 
 // Security middleware
 app.use(helmet());
